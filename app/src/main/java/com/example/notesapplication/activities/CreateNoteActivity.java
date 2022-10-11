@@ -35,8 +35,6 @@ import com.example.notesapplication.database.NotesDatabase;
 import com.example.notesapplication.entities.Note;
 import com.google.android.material.bottomsheet.BottomSheetBehavior;
 
-import java.io.DataInputStream;
-import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -54,6 +52,8 @@ public class CreateNoteActivity extends AppCompatActivity {
 
     private LinearLayout layoutWebURL;
     private AlertDialog dialogAddURL;
+    private AlertDialog dialogDeleteNote;
+    private Note availableNote;
 
     private static final int REQUEST_CODE_STORAGE_PERMISSION = 1;
     private static final int REQUEST_CODE_SELECT_IMAGE = 2;
@@ -95,9 +95,47 @@ public class CreateNoteActivity extends AppCompatActivity {
 
         selectionNoteColor = "#EB2C2323";
         selectedImagePath = "";
+        if(getIntent().getBooleanExtra("isViewOrUpdate", false)){
+            availableNote = (Note) getIntent().getSerializableExtra("note");
+            setViewOrUpdate();
+        }
 
+        findViewById(R.id.imageRemoveWebURL).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                textWebURL.setText(null);
+                layoutWebURL.setVisibility(View.GONE);
+            }
+        });
+
+        findViewById(R.id.imageRemoveImage).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                imageNote.setImageBitmap(null);
+                imageNote.setVisibility(View.GONE);
+                findViewById(R.id.imageRemoveImage).setVisibility(View.GONE);
+                selectedImagePath = "";
+            }
+        });
         optionNote();
         setSubtitleIndicator();
+    }
+    private void setViewOrUpdate(){
+        inputNoteTitle.setText(availableNote.getTitle());
+        inputNoteSubtitle.setText(availableNote.getSubTitle());
+        inputNoteText.setText(availableNote.getNoteText());
+        textDateTime.setText(availableNote.getDateTime());
+        if(availableNote.getImgagePath() != null && !availableNote.getImgagePath().isEmpty()){
+            imageNote.setImageBitmap(BitmapFactory.decodeFile(availableNote.getImgagePath()));
+            imageNote.setVisibility(View.VISIBLE);
+            findViewById(R.id.imageRemoveImage).setVisibility(View.VISIBLE);
+            selectedImagePath = availableNote.getImgagePath();
+        }
+
+        if(availableNote.getWebLink() != null && !availableNote.getWebLink().isEmpty()){
+            textWebURL.setText(availableNote.getWebLink());
+            layoutWebURL.setVisibility(View.VISIBLE);
+        }
     }
 
     private void saveNote() {
@@ -122,6 +160,9 @@ public class CreateNoteActivity extends AppCompatActivity {
             note.setWebLink(textWebURL.getText().toString());
         }
 
+        if(availableNote != null){
+            note.setId(availableNote.getId());
+        }
         class SaveNoteTask extends AsyncTask<Void, Void, Void> {
 
             @Override
@@ -227,6 +268,24 @@ public class CreateNoteActivity extends AppCompatActivity {
             }
         });
 
+        if (availableNote != null && availableNote.getColor() != null
+        && !availableNote.getColor().isEmpty()){
+            switch (availableNote.getColor()){
+                case "#FFEB3B":
+                    layoutOptionNote.findViewById(R.id.viewColor2).performClick();
+                    break;
+                case "#FFC107":
+                    layoutOptionNote.findViewById(R.id.viewColor3).performClick();
+                    break;
+                case "#2196F3":
+                    layoutOptionNote.findViewById(R.id.viewColor4).performClick();
+                    break;
+                case "#F43434":
+                    layoutOptionNote.findViewById(R.id.viewColor5).performClick();
+                    break;
+            }
+        }
+
         layoutOptionNote.findViewById(R.id.layoutAddImage).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -252,6 +311,64 @@ public class CreateNoteActivity extends AppCompatActivity {
             }
         });
 
+        if (availableNote != null){
+            layoutOptionNote.findViewById(R.id.layoutDeleteNote).setVisibility(View.VISIBLE);
+            layoutOptionNote.findViewById(R.id.layoutDeleteNote).setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    bottomSheetBehavior.setState(BottomSheetBehavior.STATE_COLLAPSED);
+                    showDeleteNoteDialog();
+                }
+            });
+        }
+    }
+
+    private void showDeleteNoteDialog(){
+        if(dialogDeleteNote == null){
+            AlertDialog.Builder builder = new AlertDialog.Builder(CreateNoteActivity.this);
+            View view = LayoutInflater.from(this).inflate(
+                    R.layout.layout_delete_note,
+                    findViewById(R.id.layoutDeleteNoteContainer)
+            );
+            builder.setView(view);
+            dialogDeleteNote = builder.create();
+            if(dialogDeleteNote.getWindow() != null){
+                dialogDeleteNote.getWindow().setBackgroundDrawable(new ColorDrawable(0));
+            }
+            view.findViewById(R.id.textDeleteNote).setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    @SuppressLint("StaticFieldLeak")
+                    class DeleteTask extends AsyncTask<Void, Void, Void>{
+
+                        @Override
+                        protected Void doInBackground(Void... voids) {
+                            NotesDatabase.getDatabase(getApplicationContext()).noteDAO()
+                                    .deleteNote(availableNote);
+                            return null;
+                        }
+
+                        @Override
+                        protected void onPostExecute(Void unused) {
+                            super.onPostExecute(unused);
+                            Intent intent = new Intent();
+                            intent.putExtra("isNoteDeleted", true);
+                            setResult(RESULT_OK, intent);
+                            finish();
+                        }
+                    }
+                    new DeleteTask().execute();
+                }
+            });
+
+            view.findViewById(R.id.textCancelDelete).setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    dialogDeleteNote.dismiss();
+                }
+            });
+        }
+        dialogDeleteNote.show();
     }
 
     private void setSubtitleIndicator() {
@@ -292,6 +409,7 @@ public class CreateNoteActivity extends AppCompatActivity {
                         Bitmap bitmap = BitmapFactory.decodeStream(dataInputStream);
                         imageNote.setImageBitmap(bitmap);
                         imageNote.setVisibility(View.VISIBLE);
+                        findViewById(R.id.imageRemoveImage).setVisibility(View.VISIBLE);
 
                         selectedImagePath = getPathFromUri(selectedImageUri);
                         dataInputStream.close();
