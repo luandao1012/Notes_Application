@@ -1,5 +1,5 @@
 # Notes_Application
-Ứng dụng Android đơn giản để lưu lại những ghi chú
+Ứng dụng Android đơn giản để lưu lại những ghi chú sử dụng SQLite
 
 Thư viện sử dụng
   - Room database: Thư viện giúp sử dụng SQLite dễ dàng hơn
